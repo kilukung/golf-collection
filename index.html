@@ -1,8 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Golf Collection List</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  darkMode: 'class',
+  theme: {
+    extend: {
+      fontFamily: { poppins: ['Poppins', 'sans-serif'] },
+      colors: {
+        primary: { DEFAULT: '#6366F1', dark: '#4338CA', light: '#E0E7FF' },
+        accent: '#A5B4FC'
+      }
+    }
+  }
+}
+</script>
+<style>
+body { font-family: 'Poppins', sans-serif; }
+.bag-card { transition: transform 0.3s ease, box-shadow 0.3s ease, border 0.3s ease; cursor: pointer; }
+.bag-card:hover { transform: translateY(-4px); box-shadow: 0 10px 15px rgba(0,0,0,0.1); }
+.bag-card.selected { border: 3px solid #6366F1; }
+.success-message { transition: all 0.5s ease; opacity: 0; transform: translateY(-20px);}
+.success-message.show { opacity: 1; transform: translateY(0); }
+</style>
+</head>
+<body class="bg-primary-light dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+<div class="container mx-auto px-4 py-6 max-w-6xl">
+  <!-- Header -->
+  <div class="flex justify-between items-center mb-6">
+    <h1 class="text-3xl font-bold bg-gradient-to-r from-indigo-500 via-sky-500 to-purple-500 text-transparent bg-clip-text">Golf Collection</h1>
+    <button id="darkToggle" class="px-3 py-1 rounded-full bg-primary text-white hover:bg-primary-dark transition">🌙/☀️</button>
+  </div>
+
+  <!-- Dashboard -->
+  <p class="mb-3 text-sm text-gray-700 dark:text-gray-300">คลิกการ์ดเพื่อเลือกถุงที่ต้องการบันทึก</p>
+  <div id="dashboard" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <!-- cards generate by JS -->
+  </div>
+
+  <!-- Form -->
+  <form id="collectionForm" class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md mb-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+      <input type="date" id="date" class="border p-2 rounded text-gray-800" required>
+      <input type="text" id="name" class="border p-2 rounded text-gray-800" placeholder="Name" required>
+      <input type="tel" id="telephone" class="border p-2 rounded text-gray-800" placeholder="Telephone" required>
+      <input type="text" id="signature" class="border p-2 rounded text-gray-800" placeholder="Signature" required>
+    </div>
+    <div class="flex justify-between">
+      <button type="button" id="undoBtn" class="px-4 py-2 bg-gray-400 text-white rounded hidden">Undo</button>
+      <button class="px-6 py-2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded hover:opacity-90 transition">Submit</button>
+    </div>
+  </form>
+
+  <!-- Records -->
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden">
+    <table class="min-w-full">
+      <thead><tr class="bg-gradient-to-r from-indigo-500 to-purple-500 text-white">
+        <th class="p-2 text-left">Date</th>
+        <th class="p-2 text-left">Name</th>
+        <th class="p-2 text-left">Telephone</th>
+        <th class="p-2 text-left">Bags</th>
+        <th class="p-2 text-left">Signature</th>
+      </tr></thead>
+      <tbody id="recordsTableBody" class="text-gray-900 dark:text-gray-100"></tbody>
+    </table>
+  </div>
+</div>
+
+<div id="successMessage" class="success-message fixed top-4 right-4 bg-green-100 text-green-800 p-4 rounded shadow">Saved!</div>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { 
-  getFirestore, collection, addDoc, getDocs, setDoc, doc, onSnapshot, getDoc, deleteDoc 
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, setDoc, doc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCDG0_qs4g4ajpoqAgSYCf_NKNwbFogQEQ",
@@ -37,7 +111,7 @@ document.getElementById("darkToggle").addEventListener("click",()=>{
   document.documentElement.classList.toggle("dark");
 });
 
-// Render dashboard
+// Render dashboard with selectable cards
 function renderDashboard(data){
   dashboard.innerHTML="";
   Object.keys(bagsInfo).forEach(key=>{
@@ -62,10 +136,11 @@ function renderDashboard(data){
     </div>`;
   });
 
+  // click event on cards
   document.querySelectorAll(".bag-card").forEach(card=>{
     const key = card.dataset.key;
     card.addEventListener("click",()=>{
-      if (card.classList.contains("cursor-not-allowed")) return;
+      if (card.classList.contains("cursor-not-allowed")) return; // can't select if out of stock
       if(selectedBags.includes(key)){
         selectedBags = selectedBags.filter(k=>k!==key);
       } else {
@@ -76,7 +151,7 @@ function renderDashboard(data){
   });
 }
 
-// realtime inventory
+// realtime inventory listener
 onSnapshot(collection(db,"inventory"), snapshot=>{
   const data={};
   snapshot.forEach(doc=>data[doc.id]=doc.data());
@@ -87,8 +162,8 @@ onSnapshot(collection(db,"inventory"), snapshot=>{
 async function loadRecords(){
   tableBody.innerHTML="";
   const snapshot=await getDocs(collection(db,"collections"));
-  snapshot.forEach(docSnap=>{
-    const d=docSnap.data();
+  snapshot.forEach(doc=>{
+    const d=doc.data();
     tableBody.innerHTML += `<tr>
       <td class="p-2">${d.date}</td>
       <td class="p-2">${d.name}</td>
@@ -102,13 +177,12 @@ async function loadRecords(){
 // submit
 form.addEventListener("submit", async e=>{
   e.preventDefault();
-  if(selectedBags.length===0){alert("Please select at least one bag.");return;}
+  if(selectedBags.length===0){alert("Please select at least one bag by clicking cards.");return;}
   const date=form.querySelector("#date").value;
   const name=form.querySelector("#name").value;
   const telephone=form.querySelector("#telephone").value;
   const signature=form.querySelector("#signature").value;
 
-  // update inventory
   for(let key of selectedBags){
     const invRef = doc(db,"inventory",key);
     const invSnap = await getDoc(invRef);
@@ -118,13 +192,12 @@ form.addEventListener("submit", async e=>{
     }
   }
 
-  const docRef = await addDoc(collection(db,"collections"),{date,name,telephone,signature,bags:selectedBags});
-  lastAction={selected:[...selectedBags], recordId:docRef.id};
-
+  await addDoc(collection(db,"collections"),{date,name,telephone,signature,bags:selectedBags});
+  lastAction={selected:[...selectedBags]};
   undoBtn.classList.remove("hidden");
+
   successMessage.classList.add("show");
   setTimeout(()=>successMessage.classList.remove("show"),2000);
-
   selectedBags=[];
   form.reset();
   loadRecords();
@@ -133,22 +206,17 @@ form.addEventListener("submit", async e=>{
 // undo
 undoBtn.addEventListener("click",async()=>{
   if(!lastAction)return;
-  // restore inventory
   for(let key of lastAction.selected){
     const invRef=doc(db,"inventory",key);
     const snap=await getDoc(invRef);
     const inv=snap.data();
     await setDoc(invRef,{...inv,used:inv.used-1,remaining:inv.remaining+1});
   }
-  // delete the record
-  if(lastAction.recordId){
-    await deleteDoc(doc(db,"collections",lastAction.recordId));
-  }
-
   lastAction=null;
   undoBtn.classList.add("hidden");
-  loadRecords();
 });
 
 loadRecords();
 </script>
+</body>
+</html>
