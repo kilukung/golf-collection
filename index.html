@@ -1,65 +1,82 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Golf Collection List</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700&display=swap" rel="stylesheet">
-  <style>
-    body { font-family: 'Poppins', sans-serif; transition: background 0.3s, color 0.3s; }
-    .bag-card { transition: all 0.3s ease; cursor: pointer; }
-    .bag-card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.15); }
-    .success-message { transform: translateY(-20px); opacity: 0; transition: all 0.5s ease; }
-    .success-message.show { transform: translateY(0); opacity: 1; }
-    .dark body { background-color:#0f172a; color:#f8fafc; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Golf Collection List</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  darkMode: 'class',
+  theme: {
+    extend: {
+      fontFamily: { poppins: ['Poppins', 'sans-serif'] },
+      colors: {
+        primary: { DEFAULT: '#6366F1', dark: '#4338CA', light: '#E0E7FF' },
+        accent: '#A5B4FC'
+      }
+    }
+  }
+}
+</script>
+<style>
+body { font-family: 'Poppins', sans-serif; }
+.bag-card { transition: transform 0.3s ease, box-shadow 0.3s ease, border 0.3s ease; cursor: pointer; }
+.bag-card:hover { transform: translateY(-4px); box-shadow: 0 10px 15px rgba(0,0,0,0.1); }
+.bag-card.selected { border: 3px solid #6366F1; }
+.success-message { transition: all 0.5s ease; opacity: 0; transform: translateY(-20px);}
+.success-message.show { opacity: 1; transform: translateY(0); }
+</style>
 </head>
-<body class="bg-sky-50 text-gray-800">
+<body class="bg-primary-light dark:bg-gray-900 text-gray-900 dark:text-gray-100">
 <div class="container mx-auto px-4 py-6 max-w-6xl">
+  <!-- Header -->
   <div class="flex justify-between items-center mb-6">
-    <h1 class="text-3xl font-bold">Golf Collection</h1>
-    <div class="space-x-3">
-      <button id="darkToggle" class="px-4 py-2 bg-gray-800 text-white rounded">Dark</button>
-      <button id="undoBtn" class="hidden px-4 py-2 bg-red-600 text-white rounded">Undo</button>
-    </div>
+    <h1 class="text-3xl font-bold bg-gradient-to-r from-indigo-500 via-sky-500 to-purple-500 text-transparent bg-clip-text">Golf Collection</h1>
+    <button id="darkToggle" class="px-3 py-1 rounded-full bg-primary text-white hover:bg-primary-dark transition">🌙/☀️</button>
   </div>
 
   <!-- Dashboard -->
-  <div id="dashboard" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"></div>
+  <p class="mb-3 text-sm text-gray-700 dark:text-gray-300">คลิกการ์ดเพื่อเลือกถุงที่ต้องการบันทึก</p>
+  <div id="dashboard" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <!-- cards generate by JS -->
+  </div>
 
   <!-- Form -->
-  <form id="collectionForm" class="bg-white p-6 rounded shadow-md mb-8 dark:bg-slate-700">
+  <form id="collectionForm" class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md mb-6">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-      <input type="date" id="date" class="border p-2 rounded text-gray-700" required>
-      <input type="text" id="name" class="border p-2 rounded text-gray-700" placeholder="Name" required>
-      <input type="tel" id="telephone" class="border p-2 rounded text-gray-700" placeholder="Telephone" required>
-      <input type="text" id="signature" class="border p-2 rounded text-gray-700" placeholder="Signature" required>
+      <input type="date" id="date" class="border p-2 rounded text-gray-800" required>
+      <input type="text" id="name" class="border p-2 rounded text-gray-800" placeholder="Name" required>
+      <input type="tel" id="telephone" class="border p-2 rounded text-gray-800" placeholder="Telephone" required>
+      <input type="text" id="signature" class="border p-2 rounded text-gray-800" placeholder="Signature" required>
     </div>
-    <button class="px-6 py-2 bg-blue-600 text-white rounded">Submit</button>
+    <div class="flex justify-between">
+      <button type="button" id="undoBtn" class="px-4 py-2 bg-gray-400 text-white rounded hidden">Undo</button>
+      <button class="px-6 py-2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded hover:opacity-90 transition">Submit</button>
+    </div>
   </form>
 
   <!-- Records -->
-  <table class="min-w-full bg-white rounded shadow-md dark:bg-slate-700">
-    <thead><tr class="bg-blue-100 dark:bg-slate-600">
-      <th class="p-2 text-left">Date</th>
-      <th class="p-2 text-left">Name</th>
-      <th class="p-2 text-left">Telephone</th>
-      <th class="p-2 text-left">Bags</th>
-      <th class="p-2 text-left">Signature</th>
-    </tr></thead>
-    <tbody id="recordsTableBody"></tbody>
-  </table>
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden">
+    <table class="min-w-full">
+      <thead><tr class="bg-gradient-to-r from-indigo-500 to-purple-500 text-white">
+        <th class="p-2 text-left">Date</th>
+        <th class="p-2 text-left">Name</th>
+        <th class="p-2 text-left">Telephone</th>
+        <th class="p-2 text-left">Bags</th>
+        <th class="p-2 text-left">Signature</th>
+      </tr></thead>
+      <tbody id="recordsTableBody" class="text-gray-900 dark:text-gray-100"></tbody>
+    </table>
+  </div>
 </div>
 
-<div id="successMessage" class="success-message fixed top-4 right-4 bg-green-100 p-4 rounded shadow">Saved!</div>
+<div id="successMessage" class="success-message fixed top-4 right-4 bg-green-100 text-green-800 p-4 rounded shadow">Saved!</div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, setDoc, doc, onSnapshot, getDoc, deleteDoc } 
-from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, setDoc, doc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCDG0_qs4g4ajpoqAgSYCf_NKNwbFogQEQ",
@@ -70,111 +87,119 @@ const firebaseConfig = {
   appId: "1:119781201406:web:43499800e32cc9c5b25caf",
   measurementId: "G-E396QPZBG6"
 };
+
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
+const bagsInfo = {
+  "ptt-2024": {name:"2024 – PTT NGD", img:"https://i.ibb.co/HD0PLqk5/thumbnail-IMG-8849.jpg"},
+  "amata-2024": {name:"2024 – AMATA NGD", img:"https://i.ibb.co/jBfdyYY/thumbnail-IMG-8850.jpg"},
+  "ptt-2025": {name:"2025 – PTT NGD", img:"https://i.ibb.co/qFr04hHx/thumbnail-IMG-8851.jpg"},
+  "amata-2025": {name:"2025 – AMATA NGD", img:"https://i.ibb.co/Q3nKbZqY/thumbnail-IMG-8848.jpg"}
+};
+
 const dashboard = document.getElementById("dashboard");
+const form = document.getElementById("collectionForm");
 const tableBody = document.getElementById("recordsTableBody");
 const successMessage = document.getElementById("successMessage");
 const undoBtn = document.getElementById("undoBtn");
-const darkToggle = document.getElementById("darkToggle");
 let lastAction = null;
+let selectedBags = [];
 
-// toggle dark
-darkToggle.addEventListener("click", () => document.documentElement.classList.toggle("dark"));
+// Dark mode toggle
+document.getElementById("darkToggle").addEventListener("click",()=>{
+  document.documentElement.classList.toggle("dark");
+});
 
-// show success
-function showSuccess(msg) {
-  successMessage.textContent = msg;
-  successMessage.classList.add("show");
-  setTimeout(()=>successMessage.classList.remove("show"),2000);
-}
-
-// render dashboard
-function renderDashboard(data) {
-  dashboard.innerHTML = "";
-  Object.entries(data).forEach(([key,val])=>{
-    const percent = (val.remaining/val.total)*100;
+// Render dashboard with selectable cards
+function renderDashboard(data){
+  dashboard.innerHTML="";
+  Object.keys(bagsInfo).forEach(key=>{
+    const inv = data[key]||{total:0,used:0,remaining:0};
+    const percent = inv.total ? (inv.remaining/inv.total)*100 : 0;
+    const selected = selectedBags.includes(key) ? "selected" : "";
+    const disabled = inv.remaining <= 0 ? "opacity-40 cursor-not-allowed" : "cursor-pointer";
     dashboard.innerHTML += `
-      <div class="bag-card bg-white rounded-lg shadow-md overflow-hidden dark:bg-slate-700" data-key="${key}">
-        <div class="h-48 flex items-center justify-center bg-sky-100"><img src="${val.img}" class="h-full object-contain"></div>
-        <div class="p-4">
-          <h3 class="font-semibold mb-2">${val.label}</h3>
-          <div class="w-full bg-sky-200 rounded-full h-3 mb-2">
-            <div class="bg-blue-500 h-3 rounded-full" style="width:${percent}%"></div>
-          </div>
-          <p><b>${val.remaining}</b> / ${val.total} Remaining</p>
+    <div class="bag-card ${selected} ${disabled} bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden" data-key="${key}">
+      <div class="bg-accent dark:bg-gray-700 h-48 flex justify-center items-center">
+        <img src="${bagsInfo[key].img}" class="h-40 object-contain"/>
+      </div>
+      <div class="p-4">
+        <h3 class="font-semibold">${bagsInfo[key].name}</h3>
+        <p>Total: ${inv.total}</p>
+        <p>Used: ${inv.used}</p>
+        <p class="text-primary font-bold">Remaining: ${inv.remaining}/${inv.total}</p>
+        <div class="w-full bg-gray-200 h-3 rounded-full mt-2">
+          <div class="h-3 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500" style="width:${percent}%"></div>
         </div>
-      </div>`;
+      </div>
+    </div>`;
   });
+
+  // click event on cards
   document.querySelectorAll(".bag-card").forEach(card=>{
-    card.addEventListener("click",()=>selectBag(card.dataset.key));
+    const key = card.dataset.key;
+    card.addEventListener("click",()=>{
+      if (card.classList.contains("cursor-not-allowed")) return; // can't select if out of stock
+      if(selectedBags.includes(key)){
+        selectedBags = selectedBags.filter(k=>k!==key);
+      } else {
+        selectedBags.push(key);
+      }
+      renderDashboard(data);
+    });
   });
 }
 
-// select bag from dashboard
-async function selectBag(key) {
-  const snap = await getDoc(doc(db,"inventory",key));
-  if (!snap.exists()) return;
-  const inv = snap.data();
-  if (inv.remaining<=0) { alert("Out of stock"); return; }
-  // mark selection
-  form.selectedBags = form.selectedBags || [];
-  if (!form.selectedBags.includes(key)) {
-    form.selectedBags.push(key);
-    showSuccess(`Selected: ${inv.label}`);
-  }
-}
-
-// live dashboard
-onSnapshot(collection(db,"inventory"),(snap)=>{
+// realtime inventory listener
+onSnapshot(collection(db,"inventory"), snapshot=>{
   const data={};
-  snap.forEach(doc=>{
-    data[doc.id]=doc.data();
-  });
+  snapshot.forEach(doc=>data[doc.id]=doc.data());
   renderDashboard(data);
 });
 
 // load records
 async function loadRecords(){
-  const snap = await getDocs(collection(db,"collections"));
   tableBody.innerHTML="";
-  snap.forEach(d=>{
-    const x=d.data();
+  const snapshot=await getDocs(collection(db,"collections"));
+  snapshot.forEach(doc=>{
+    const d=doc.data();
     tableBody.innerHTML += `<tr>
-      <td class="p-2">${x.date}</td>
-      <td class="p-2">${x.name}</td>
-      <td class="p-2">${x.telephone}</td>
-      <td class="p-2">${(x.bags||[]).join(", ")}</td>
-      <td class="p-2">${x.signature}</td></tr>`;
+      <td class="p-2">${d.date}</td>
+      <td class="p-2">${d.name}</td>
+      <td class="p-2">${d.telephone}</td>
+      <td class="p-2">${(d.bags||[]).join(", ")}</td>
+      <td class="p-2">${d.signature}</td>
+    </tr>`;
   });
 }
-loadRecords();
 
 // submit
-const form = document.getElementById("collectionForm");
-form.addEventListener("submit",async e=>{
+form.addEventListener("submit", async e=>{
   e.preventDefault();
-  const date=document.getElementById("date").value;
-  const name=document.getElementById("name").value;
-  const telephone=document.getElementById("telephone").value;
-  const signature=document.getElementById("signature").value;
-  const selected=form.selectedBags||[];
-  if(selected.length===0){alert("Please select a bag from dashboard!");return;}
-  // update stock
-  for(let key of selected){
-    const invRef=doc(db,"inventory",key);
-    const snap=await getDoc(invRef);
-    const inv=snap.data();
-    await setDoc(invRef,{...inv,used:inv.used+1,remaining:inv.remaining-1});
+  if(selectedBags.length===0){alert("Please select at least one bag by clicking cards.");return;}
+  const date=form.querySelector("#date").value;
+  const name=form.querySelector("#name").value;
+  const telephone=form.querySelector("#telephone").value;
+  const signature=form.querySelector("#signature").value;
+
+  for(let key of selectedBags){
+    const invRef = doc(db,"inventory",key);
+    const invSnap = await getDoc(invRef);
+    const invData = invSnap.data();
+    if(invData.remaining>0){
+      await setDoc(invRef,{...invData,used:invData.used+1,remaining:invData.remaining-1});
+    }
   }
-  // add record
-  const docRef = await addDoc(collection(db,"collections"),{date,name,telephone,signature,bags:selected});
-  lastAction={selected:[...selected], recordId:docRef.id};
+
+  await addDoc(collection(db,"collections"),{date,name,telephone,signature,bags:selectedBags});
+  lastAction={selected:[...selectedBags]};
   undoBtn.classList.remove("hidden");
-  showSuccess("Saved!");
+
+  successMessage.classList.add("show");
+  setTimeout(()=>successMessage.classList.remove("show"),2000);
+  selectedBags=[];
   form.reset();
-  form.selectedBags=[];
   loadRecords();
 });
 
@@ -187,13 +212,11 @@ undoBtn.addEventListener("click",async()=>{
     const inv=snap.data();
     await setDoc(invRef,{...inv,used:inv.used-1,remaining:inv.remaining+1});
   }
-  if(lastAction.recordId){
-    await deleteDoc(doc(db,"collections",lastAction.recordId));
-  }
   lastAction=null;
   undoBtn.classList.add("hidden");
-  loadRecords();
 });
+
+loadRecords();
 </script>
 </body>
 </html>
