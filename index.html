@@ -22,8 +22,9 @@ tailwind.config = {
 </script>
 <style>
 body { font-family: 'Poppins', sans-serif; }
-.bag-card { transition: transform 0.3s ease, box-shadow 0.3s ease; }
+.bag-card { transition: transform 0.3s ease, box-shadow 0.3s ease, border 0.3s ease; cursor: pointer; }
 .bag-card:hover { transform: translateY(-4px); box-shadow: 0 10px 15px rgba(0,0,0,0.1); }
+.bag-card.selected { border: 3px solid #6366F1; }
 .success-message { transition: all 0.5s ease; opacity: 0; transform: translateY(-20px);}
 .success-message.show { opacity: 1; transform: translateY(0); }
 </style>
@@ -37,6 +38,7 @@ body { font-family: 'Poppins', sans-serif; }
   </div>
 
   <!-- Dashboard -->
+  <p class="mb-3 text-sm text-gray-700 dark:text-gray-300">คลิกการ์ดเพื่อเลือกถุงที่ต้องการบันทึก</p>
   <div id="dashboard" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
     <!-- cards generate by JS -->
   </div>
@@ -48,10 +50,6 @@ body { font-family: 'Poppins', sans-serif; }
       <input type="text" id="name" class="border p-2 rounded text-gray-800" placeholder="Name" required>
       <input type="tel" id="telephone" class="border p-2 rounded text-gray-800" placeholder="Telephone" required>
       <input type="text" id="signature" class="border p-2 rounded text-gray-800" placeholder="Signature" required>
-    </div>
-    <p class="font-medium mb-2">Select Bag(s):</p>
-    <div id="bagCheckboxes" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-      <!-- Checkbox generate by JS -->
     </div>
     <div class="flex justify-between">
       <button type="button" id="undoBtn" class="px-4 py-2 bg-gray-400 text-white rounded hidden">Undo</button>
@@ -101,27 +99,28 @@ const bagsInfo = {
 };
 
 const dashboard = document.getElementById("dashboard");
-const bagCheckboxes = document.getElementById("bagCheckboxes");
 const form = document.getElementById("collectionForm");
 const tableBody = document.getElementById("recordsTableBody");
 const successMessage = document.getElementById("successMessage");
 const undoBtn = document.getElementById("undoBtn");
 let lastAction = null;
+let selectedBags = [];
 
 // Dark mode toggle
 document.getElementById("darkToggle").addEventListener("click",()=>{
   document.documentElement.classList.toggle("dark");
 });
 
-// render bag cards
+// Render dashboard with selectable cards
 function renderDashboard(data){
   dashboard.innerHTML="";
-  bagCheckboxes.innerHTML="";
   Object.keys(bagsInfo).forEach(key=>{
     const inv = data[key]||{total:0,used:0,remaining:0};
     const percent = inv.total ? (inv.remaining/inv.total)*100 : 0;
+    const selected = selectedBags.includes(key) ? "selected" : "";
+    const disabled = inv.remaining <= 0 ? "opacity-40 cursor-not-allowed" : "cursor-pointer";
     dashboard.innerHTML += `
-    <div class="bag-card bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden">
+    <div class="bag-card ${selected} ${disabled} bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden" data-key="${key}">
       <div class="bg-accent dark:bg-gray-700 h-48 flex justify-center items-center">
         <img src="${bagsInfo[key].img}" class="h-40 object-contain"/>
       </div>
@@ -135,10 +134,20 @@ function renderDashboard(data){
         </div>
       </div>
     </div>`;
-    bagCheckboxes.innerHTML += `
-      <label class="flex items-center space-x-2">
-        <input type="checkbox" value="${key}"> <span>${bagsInfo[key].name}</span>
-      </label>`;
+  });
+
+  // click event on cards
+  document.querySelectorAll(".bag-card").forEach(card=>{
+    const key = card.dataset.key;
+    card.addEventListener("click",()=>{
+      if (card.classList.contains("cursor-not-allowed")) return; // can't select if out of stock
+      if(selectedBags.includes(key)){
+        selectedBags = selectedBags.filter(k=>k!==key);
+      } else {
+        selectedBags.push(key);
+      }
+      renderDashboard(data);
+    });
   });
 }
 
@@ -168,14 +177,13 @@ async function loadRecords(){
 // submit
 form.addEventListener("submit", async e=>{
   e.preventDefault();
+  if(selectedBags.length===0){alert("Please select at least one bag by clicking cards.");return;}
   const date=form.querySelector("#date").value;
   const name=form.querySelector("#name").value;
   const telephone=form.querySelector("#telephone").value;
   const signature=form.querySelector("#signature").value;
-  const selected=[...form.querySelectorAll("input[type=checkbox]:checked")].map(cb=>cb.value);
-  if(selected.length===0){alert("Select at least 1 bag");return;}
 
-  for(let key of selected){
+  for(let key of selectedBags){
     const invRef = doc(db,"inventory",key);
     const invSnap = await getDoc(invRef);
     const invData = invSnap.data();
@@ -184,12 +192,13 @@ form.addEventListener("submit", async e=>{
     }
   }
 
-  await addDoc(collection(db,"collections"),{date,name,telephone,signature,bags:selected});
-  lastAction={selected};
+  await addDoc(collection(db,"collections"),{date,name,telephone,signature,bags:selectedBags});
+  lastAction={selected:[...selectedBags]};
   undoBtn.classList.remove("hidden");
 
   successMessage.classList.add("show");
   setTimeout(()=>successMessage.classList.remove("show"),2000);
+  selectedBags=[];
   form.reset();
   loadRecords();
 });
