@@ -76,7 +76,8 @@ body { font-family: 'Poppins', sans-serif; }
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, setDoc, doc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, setDoc, doc, onSnapshot, getDoc, deleteDoc } 
+from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCDG0_qs4g4ajpoqAgSYCf_NKNwbFogQEQ",
@@ -192,9 +193,11 @@ form.addEventListener("submit", async e=>{
     }
   }
 
-  await addDoc(collection(db,"collections"),{date,name,telephone,signature,bags:selectedBags});
-  lastAction={selected:[...selectedBags]};
-  undoBtn.classList.remove("hidden");
+  const docRef = await addDoc(collection(db,"collections"),{
+  date,name,telephone,signature,bags:selectedBags
+});
+lastAction = { selected:[...selectedBags], recordId: docRef.id };
+undoBtn.classList.remove("hidden");
 
   successMessage.classList.add("show");
   setTimeout(()=>successMessage.classList.remove("show"),2000);
@@ -212,9 +215,14 @@ undoBtn.addEventListener("click",async()=>{
     const inv=snap.data();
     await setDoc(invRef,{...inv,used:inv.used-1,remaining:inv.remaining+1});
   }
+  if (lastAction.recordId) {
+    await deleteDoc(doc(db,"collections",lastAction.recordId));
+  }
   lastAction=null;
   undoBtn.classList.add("hidden");
+  loadRecords();
 });
+
 
 loadRecords();
 </script>
