@@ -4,14 +4,82 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Golf Collection List</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  darkMode: 'class',
+  theme: {
+    extend: {
+      fontFamily: { poppins: ['Poppins', 'sans-serif'] },
+      colors: {
+        primary: { DEFAULT: '#6366F1', dark: '#4338CA', light: '#E0E7FF' },
+        accent: '#A5B4FC'
+      }
+    }
+  }
+}
+</script>
+<style>
+body { font-family: 'Poppins', sans-serif; }
+.bag-card { transition: transform 0.3s ease, box-shadow 0.3s ease; }
+.bag-card:hover { transform: translateY(-4px); box-shadow: 0 10px 15px rgba(0,0,0,0.1); }
+.success-message { transition: all 0.5s ease; opacity: 0; transform: translateY(-20px);}
+.success-message.show { opacity: 1; transform: translateY(0); }
+</style>
+</head>
+<body class="bg-primary-light dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+<div class="container mx-auto px-4 py-6 max-w-6xl">
+  <!-- Header -->
+  <div class="flex justify-between items-center mb-6">
+    <h1 class="text-3xl font-bold bg-gradient-to-r from-indigo-500 via-sky-500 to-purple-500 text-transparent bg-clip-text">Golf Collection</h1>
+    <button id="darkToggle" class="px-3 py-1 rounded-full bg-primary text-white hover:bg-primary-dark transition">🌙/☀️</button>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="dashboard" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <!-- cards generate by JS -->
+  </div>
+
+  <!-- Form -->
+  <form id="collectionForm" class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md mb-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+      <input type="date" id="date" class="border p-2 rounded text-gray-800" required>
+      <input type="text" id="name" class="border p-2 rounded text-gray-800" placeholder="Name" required>
+      <input type="tel" id="telephone" class="border p-2 rounded text-gray-800" placeholder="Telephone" required>
+      <input type="text" id="signature" class="border p-2 rounded text-gray-800" placeholder="Signature" required>
+    </div>
+    <p class="font-medium mb-2">Select Bag(s):</p>
+    <div id="bagCheckboxes" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+      <!-- Checkbox generate by JS -->
+    </div>
+    <div class="flex justify-between">
+      <button type="button" id="undoBtn" class="px-4 py-2 bg-gray-400 text-white rounded hidden">Undo</button>
+      <button class="px-6 py-2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded hover:opacity-90 transition">Submit</button>
+    </div>
+  </form>
+
+  <!-- Records -->
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden">
+    <table class="min-w-full">
+      <thead><tr class="bg-gradient-to-r from-indigo-500 to-purple-500 text-white">
+        <th class="p-2 text-left">Date</th>
+        <th class="p-2 text-left">Name</th>
+        <th class="p-2 text-left">Telephone</th>
+        <th class="p-2 text-left">Bags</th>
+        <th class="p-2 text-left">Signature</th>
+      </tr></thead>
+      <tbody id="recordsTableBody" class="text-gray-900 dark:text-gray-100"></tbody>
+    </table>
+  </div>
+</div>
+
+<div id="successMessage" class="success-message fixed top-4 right-4 bg-green-100 text-green-800 p-4 rounded shadow">Saved!</div>
+
 <script type="module">
-
-// ---- Firebase ----
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, setDoc, doc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-// Config
 const firebaseConfig = {
   apiKey: "AIzaSyCDG0_qs4g4ajpoqAgSYCf_NKNwbFogQEQ",
   authDomain: "golf-collection-list.firebaseapp.com",
@@ -21,187 +89,125 @@ const firebaseConfig = {
   appId: "1:119781201406:web:43499800e32cc9c5b25caf",
   measurementId: "G-E396QPZBG6"
 };
+
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// HTML refs
+const bagsInfo = {
+  "ptt-2024": {name:"2024 – PTT NGD", img:"https://i.ibb.co/HD0PLqk5/thumbnail-IMG-8849.jpg"},
+  "amata-2024": {name:"2024 – AMATA NGD", img:"https://i.ibb.co/jBfdyYY/thumbnail-IMG-8850.jpg"},
+  "ptt-2025": {name:"2025 – PTT NGD", img:"https://i.ibb.co/qFr04hHx/thumbnail-IMG-8851.jpg"},
+  "amata-2025": {name:"2025 – AMATA NGD", img:"https://i.ibb.co/Q3nKbZqY/thumbnail-IMG-8848.jpg"}
+};
+
+const dashboard = document.getElementById("dashboard");
+const bagCheckboxes = document.getElementById("bagCheckboxes");
+const form = document.getElementById("collectionForm");
 const tableBody = document.getElementById("recordsTableBody");
 const successMessage = document.getElementById("successMessage");
-const form = document.getElementById("collectionForm");
-const nameInput = document.getElementById("name");
-const telInput = document.getElementById("telephone");
-const sigInput = document.getElementById("signature");
-const dateInput = document.getElementById("date");
+const undoBtn = document.getElementById("undoBtn");
+let lastAction = null;
 
-// ฟังก์ชันโชว์ Records
-async function loadRecords() {
-  tableBody.innerHTML = "";
-  const snapshot = await getDocs(collection(db, "collections"));
-  snapshot.forEach(docSnap => {
-    const d = docSnap.data();
-    tableBody.innerHTML += `<tr class="hover:bg-gray-50">
+// Dark mode toggle
+document.getElementById("darkToggle").addEventListener("click",()=>{
+  document.documentElement.classList.toggle("dark");
+});
+
+// render bag cards
+function renderDashboard(data){
+  dashboard.innerHTML="";
+  bagCheckboxes.innerHTML="";
+  Object.keys(bagsInfo).forEach(key=>{
+    const inv = data[key]||{total:0,used:0,remaining:0};
+    const percent = inv.total ? (inv.remaining/inv.total)*100 : 0;
+    dashboard.innerHTML += `
+    <div class="bag-card bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden">
+      <div class="bg-accent dark:bg-gray-700 h-48 flex justify-center items-center">
+        <img src="${bagsInfo[key].img}" class="h-40 object-contain"/>
+      </div>
+      <div class="p-4">
+        <h3 class="font-semibold">${bagsInfo[key].name}</h3>
+        <p>Total: ${inv.total}</p>
+        <p>Used: ${inv.used}</p>
+        <p class="text-primary font-bold">Remaining: ${inv.remaining}/${inv.total}</p>
+        <div class="w-full bg-gray-200 h-3 rounded-full mt-2">
+          <div class="h-3 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500" style="width:${percent}%"></div>
+        </div>
+      </div>
+    </div>`;
+    bagCheckboxes.innerHTML += `
+      <label class="flex items-center space-x-2">
+        <input type="checkbox" value="${key}"> <span>${bagsInfo[key].name}</span>
+      </label>`;
+  });
+}
+
+// realtime inventory listener
+onSnapshot(collection(db,"inventory"), snapshot=>{
+  const data={};
+  snapshot.forEach(doc=>data[doc.id]=doc.data());
+  renderDashboard(data);
+});
+
+// load records
+async function loadRecords(){
+  tableBody.innerHTML="";
+  const snapshot=await getDocs(collection(db,"collections"));
+  snapshot.forEach(doc=>{
+    const d=doc.data();
+    tableBody.innerHTML += `<tr>
       <td class="p-2">${d.date}</td>
       <td class="p-2">${d.name}</td>
       <td class="p-2">${d.telephone}</td>
-      <td class="p-2">${(d.bags || []).join(", ")}</td>
+      <td class="p-2">${(d.bags||[]).join(", ")}</td>
       <td class="p-2">${d.signature}</td>
     </tr>`;
   });
 }
 
-// Update Dashboard real-time
-onSnapshot(collection(db, "inventory"), (snap) => {
-  snap.forEach(docSnap => {
-    const bag = docSnap.id;
-    const data = docSnap.data();
-    const total = data.total;
-    const used = data.used;
-    const remain = total - used;
+// submit
+form.addEventListener("submit", async e=>{
+  e.preventDefault();
+  const date=form.querySelector("#date").value;
+  const name=form.querySelector("#name").value;
+  const telephone=form.querySelector("#telephone").value;
+  const signature=form.querySelector("#signature").value;
+  const selected=[...form.querySelectorAll("input[type=checkbox]:checked")].map(cb=>cb.value);
+  if(selected.length===0){alert("Select at least 1 bag");return;}
 
-    document.getElementById(`${bag}-total`).textContent = total;
-    document.getElementById(`${bag}-used`).textContent = used;
-    document.getElementById(`${bag}-remaining`).textContent = remain;
-
-    const bar = document.getElementById(`${bag}-bar`);
-    bar.style.width = `${(remain/total)*100}%`;
-  });
-});
-
-// เมื่อกดการ์ด
-async function handleCardClick(bagId) {
-  const name = nameInput.value.trim();
-  const tel = telInput.value.trim();
-  const sig = sigInput.value.trim();
-  const date = dateInput.value;
-  if (!name || !tel || !sig) {
-    alert("กรอกชื่อ โทรศัพท์ และผู้รับก่อน");
-    return;
-  }
-  const confirmPick = confirm(`ยืนยันรับถุงรุ่น ${bagId}?`);
-  if (!confirmPick) return;
-
-  // อัปเดต Firestore: เพิ่ม Record และลด Remaining
-  const invRef = doc(db, "inventory", bagId);
-  const snap = await getDocs(collection(db,"inventory"));
-  let remainOk = true;
-
-  // ดึงค่าปัจจุบัน
-  const bagSnap = (await getDocs(collection(db,"inventory")))
-    .docs.find(d=>d.id===bagId);
-
-  const cur = bagSnap.data();
-  if (cur.used >= cur.total) {
-    alert("Stock หมดแล้ว");
-    return;
+  for(let key of selected){
+    const invRef = doc(db,"inventory",key);
+    const invSnap = await getDoc(invRef);
+    const invData = invSnap.data();
+    if(invData.remaining>0){
+      await setDoc(invRef,{...invData,used:invData.used+1,remaining:invData.remaining-1});
+    }
   }
 
-  // update inventory
-  await updateDoc(invRef, { used: cur.used + 1 });
-
-  // add record
-  await addDoc(collection(db, "collections"), {
-    date,
-    name,
-    telephone: tel,
-    signature: sig,
-    bags: [bagId]
-  });
+  await addDoc(collection(db,"collections"),{date,name,telephone,signature,bags:selected});
+  lastAction={selected};
+  undoBtn.classList.remove("hidden");
 
   successMessage.classList.add("show");
-  setTimeout(() => successMessage.classList.remove("show"), 2000);
+  setTimeout(()=>successMessage.classList.remove("show"),2000);
+  form.reset();
   loadRecords();
-}
+});
 
-window.handleCardClick = handleCardClick;
+// undo
+undoBtn.addEventListener("click",async()=>{
+  if(!lastAction)return;
+  for(let key of lastAction.selected){
+    const invRef=doc(db,"inventory",key);
+    const snap=await getDoc(invRef);
+    const inv=snap.data();
+    await setDoc(invRef,{...inv,used:inv.used-1,remaining:inv.remaining+1});
+  }
+  lastAction=null;
+  undoBtn.classList.add("hidden");
+});
+
 loadRecords();
-</script>
-
-<style>
-body { font-family: 'Inter', sans-serif; background-color: #f0f8ff; }
-.bag-card { transition: transform 0.3s; cursor: pointer; }
-.bag-card:hover { transform: scale(1.05); }
-.success-message { opacity: 0; transition: 0.5s; }
-.success-message.show { opacity: 1; }
-.progress-container {
-  background: #dbeafe; height: 8px; border-radius: 4px; overflow: hidden;
-}
-.progress-bar { background: #2563eb; height: 100%; transition: width 0.3s; }
-</style>
-</head>
-
-<body>
-<div class="container mx-auto p-6 max-w-6xl">
-<h1 class="text-3xl font-bold text-center text-blue-800 mb-6">Golf Collection List</h1>
-
-<!-- Form (no bag select) -->
-<form id="collectionForm" class="bg-white p-4 rounded shadow mb-8">
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-    <input type="date" id="date" class="border p-2 rounded" required>
-    <input type="text" id="name" class="border p-2 rounded" placeholder="Name" required>
-    <input type="tel" id="telephone" class="border p-2 rounded" placeholder="Telephone" required>
-    <input type="text" id="signature" class="border p-2 rounded" placeholder="Signature" required>
-  </div>
-  <p class="text-gray-600">เลือกถุงโดยคลิกที่ภาพด้านล่าง</p>
-</form>
-
-<!-- Dashboard -->
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-  <!-- Card template -->
-  <div onclick="handleCardClick('ptt-2024')" class="bag-card bg-white rounded-lg shadow-md overflow-hidden">
-    <img src="https://i.ibb.co/HD0PLqk5/thumbnail-IMG-8849.jpg" class="h-64 w-full object-contain bg-blue-50">
-    <div class="p-4">
-      <h3 class="font-semibold text-blue-700">2024 – PTT NGD</h3>
-      <div class="progress-container mt-2"><div id="ptt-2024-bar" class="progress-bar w-full"></div></div>
-      <p class="mt-2 text-sm">Remaining: <span id="ptt-2024-remaining">0</span> / <span id="ptt-2024-total">0</span></p>
-      <p class="text-xs text-gray-600">Used: <span id="ptt-2024-used">0</span></p>
-    </div>
-  </div>
-
-  <div onclick="handleCardClick('amata-2024')" class="bag-card bg-white rounded-lg shadow-md overflow-hidden">
-    <img src="https://i.ibb.co/jBfdyYY/thumbnail-IMG-8850.jpg" class="h-64 w-full object-contain bg-blue-50">
-    <div class="p-4">
-      <h3 class="font-semibold text-blue-700">2024 – AMATA NGD</h3>
-      <div class="progress-container mt-2"><div id="amata-2024-bar" class="progress-bar w-full"></div></div>
-      <p class="mt-2 text-sm">Remaining: <span id="amata-2024-remaining">0</span> / <span id="amata-2024-total">0</span></p>
-      <p class="text-xs text-gray-600">Used: <span id="amata-2024-used">0</span></p>
-    </div>
-  </div>
-
-  <div onclick="handleCardClick('ptt-2025')" class="bag-card bg-white rounded-lg shadow-md overflow-hidden">
-    <img src="https://i.ibb.co/qFr04hHx/thumbnail-IMG-8851.jpg" class="h-64 w-full object-contain bg-blue-50">
-    <div class="p-4">
-      <h3 class="font-semibold text-blue-700">2025 – PTT NGD</h3>
-      <div class="progress-container mt-2"><div id="ptt-2025-bar" class="progress-bar w-full"></div></div>
-      <p class="mt-2 text-sm">Remaining: <span id="ptt-2025-remaining">0</span> / <span id="ptt-2025-total">0</span></p>
-      <p class="text-xs text-gray-600">Used: <span id="ptt-2025-used">0</span></p>
-    </div>
-  </div>
-
-  <div onclick="handleCardClick('amata-2025')" class="bag-card bg-white rounded-lg shadow-md overflow-hidden">
-    <img src="https://i.ibb.co/Q3nKbZqY/thumbnail-IMG-8848.jpg" class="h-64 w-full object-contain bg-blue-50">
-    <div class="p-4">
-      <h3 class="font-semibold text-blue-700">2025 – AMATA NGD</h3>
-      <div class="progress-container mt-2"><div id="amata-2025-bar" class="progress-bar w-full"></div></div>
-      <p class="mt-2 text-sm">Remaining: <span id="amata-2025-remaining">0</span> / <span id="amata-2025-total">0</span></p>
-      <p class="text-xs text-gray-600">Used: <span id="amata-2025-used">0</span></p>
-    </div>
-  </div>
-</div>
-
-<!-- Records -->
-<h2 class="text-xl font-semibold mb-3 text-blue-800">Collection Records</h2>
-<table class="min-w-full bg-white rounded shadow-md">
-<thead><tr class="bg-blue-100">
-  <th class="p-2">Date</th><th class="p-2">Name</th><th class="p-2">Tel</th><th class="p-2">Bags</th><th class="p-2">Signature</th>
-</tr></thead>
-<tbody id="recordsTableBody"></tbody>
-</table>
-</div>
-
-<div id="successMessage" class="success-message fixed top-4 right-4 bg-green-100 p-4 rounded shadow">Saved!</div>
-
-<script>
-document.getElementById("date").value = new Date().toISOString().split("T")[0];
 </script>
 </body>
 </html>
