@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Golf Collection List</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"></script>
+  <style>
+    body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+    .bag-card { transition: all 0.3s ease; }
+    .bag-card:hover { transform: translateY(-5px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+    .success-message { transform: translateY(-20px); opacity: 0; transition: all 0.5s ease; }
+    .success-message.show { transform: translateY(0); opacity: 1; }
+    .bag-image { width: 100%; height: 100%; object-fit: contain; }
+    .image-container { background-color: #f3f4f6; display: flex; align-items: center; justify-content: center; }
+  </style>
+</head>
+<body>
+<div class="container mx-auto px-4 py-8 max-w-6xl">
+  <h1 class="text-3xl font-bold text-center mb-6">Golf Collection List</h1>
+
+  <!-- Dashboard -->
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+    <div class="bag-card bg-white rounded-lg shadow-md overflow-hidden">
+      <div class="image-container h-64"><img src="https://i.ibb.co/HD0PLqk5/thumbnail-IMG-8849.jpg" class="bag-image"></div>
+      <div class="p-4"><h3 class="font-semibold">2024 – PTT NGD</h3>
+        <p>Total: <span id="ptt-2024-total">10</span></p>
+        <p>Used: <span id="ptt-2024-used">0</span></p>
+        <p class="text-green-600">Remaining: <span id="ptt-2024-remaining">10</span></p>
+      </div>
+    </div>
+    <div class="bag-card bg-white rounded-lg shadow-md overflow-hidden">
+      <div class="image-container h-64"><img src="https://i.ibb.co/jBfdyYY/thumbnail-IMG-8850.jpg" class="bag-image"></div>
+      <div class="p-4"><h3 class="font-semibold">2024 – AMATA NGD</h3>
+        <p>Total: <span id="amata-2024-total">8</span></p>
+        <p>Used: <span id="amata-2024-used">0</span></p>
+        <p class="text-green-600">Remaining: <span id="amata-2024-remaining">8</span></p>
+      </div>
+    </div>
+    <div class="bag-card bg-white rounded-lg shadow-md overflow-hidden">
+      <div class="image-container h-64"><img src="https://i.ibb.co/qFr04hHx/thumbnail-IMG-8851.jpg" class="bag-image"></div>
+      <div class="p-4"><h3 class="font-semibold">2025 – PTT NGD</h3>
+        <p>Total: <span id="ptt-2025-total">7</span></p>
+        <p>Used: <span id="ptt-2025-used">0</span></p>
+        <p class="text-green-600">Remaining: <span id="ptt-2025-remaining">7</span></p>
+      </div>
+    </div>
+    <div class="bag-card bg-white rounded-lg shadow-md overflow-hidden">
+      <div class="image-container h-64"><img src="https://i.ibb.co/Q3nKbZqY/thumbnail-IMG-8848.jpg" class="bag-image"></div>
+      <div class="p-4"><h3 class="font-semibold">2025 – AMATA NGD</h3>
+        <p>Total: <span id="amata-2025-total">7</span></p>
+        <p>Used: <span id="amata-2025-used">0</span></p>
+        <p class="text-green-600">Remaining: <span id="amata-2025-remaining">7</span></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Form -->
+  <form id="collectionForm" class="bg-white p-6 rounded shadow-md mb-10">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+      <input type="date" id="date" class="border p-2 rounded" required>
+      <input type="text" id="name" class="border p-2 rounded" placeholder="Name" required>
+      <input type="tel" id="telephone" class="border p-2 rounded" placeholder="Telephone" required>
+      <input type="text" id="signature" class="border p-2 rounded" placeholder="Signature" required>
+    </div>
+    <p class="font-medium mb-2">Select Bag(s):</p>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+      <label><input type="checkbox" value="ptt-2024"> 2024 – PTT NGD</label>
+      <label><input type="checkbox" value="amata-2024"> 2024 – AMATA NGD</label>
+      <label><input type="checkbox" value="ptt-2025"> 2025 – PTT NGD</label>
+      <label><input type="checkbox" value="amata-2025"> 2025 – AMATA NGD</label>
+    </div>
+    <button class="px-6 py-2 bg-blue-600 text-white rounded">Submit</button>
+  </form>
+
+  <!-- Records -->
+  <table class="min-w-full bg-white rounded shadow-md">
+    <thead><tr class="bg-gray-100">
+      <th class="p-2 text-left">Date</th>
+      <th class="p-2 text-left">Name</th>
+      <th class="p-2 text-left">Telephone</th>
+      <th class="p-2 text-left">Bags</th>
+      <th class="p-2 text-left">Signature</th>
+    </tr></thead>
+    <tbody id="recordsTableBody"></tbody>
+  </table>
+</div>
+
+<div id="successMessage" class="success-message fixed top-4 right-4 bg-green-100 p-4 rounded shadow">Saved!</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+// Firebase Config
+const firebaseConfig = {
+  apiKey: "AIzaSyCDG0_qs4g4ajpoqAgSYCf_NKNwbFogQEQ",
+  authDomain: "golf-collection-list.firebaseapp.com",
+  projectId: "golf-collection-list",
+  storageBucket: "golf-collection-list.appspot.com",
+  messagingSenderId: "119781201406",
+  appId: "1:119781201406:web:43499800e32cc9c5b25caf",
+  measurementId: "G-E396QPZBG6"
+};
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const form = document.getElementById("collectionForm");
+const tableBody = document.getElementById("recordsTableBody");
+const successMessage = document.getElementById("successMessage");
+
+// โหลดข้อมูล
+async function loadRecords() {
+  tableBody.innerHTML = "";
+  const snapshot = await getDocs(collection(db, "collections"));
+  snapshot.forEach(doc => {
+    const data = doc.data();
+    const row = `<tr>
+      <td class="p-2">${data.date}</td>
+      <td class="p-2">${data.name}</td>
+      <td class="p-2">${data.telephone}</td>
+      <td class="p-2">${(data.bags || []).join(", ")}</td>
+      <td class="p-2">${data.signature}</td>
+    </tr>`;
+    tableBody.innerHTML += row;
+  });
+}
+
+// บันทึก
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const date = document.getElementById("date").value;
+  const name = document.getElementById("name").value;
+  const telephone = document.getElementById("telephone").value;
+  const signature = document.getElementById("signature").value;
+  const bags = Array.from(form.querySelectorAll("input[type=checkbox]:checked")).map(cb => cb.value);
+
+  await addDoc(collection(db, "collections"), { date, name, telephone, signature, bags });
+  successMessage.classList.add("show");
+  setTimeout(()=>successMessage.classList.remove("show"), 2000);
+  form.reset();
+  loadRecords();
+});
+
+loadRecords();
+</script>
+</body>
+</html>
