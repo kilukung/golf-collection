@@ -5,14 +5,112 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Golf Collection List</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"></script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getFirestore, collection, addDoc, getDocs, onSnapshot, doc, updateDoc, increment, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    // Firebase Config
+    const firebaseConfig = {
+      apiKey: "AIzaSyCDG0_qs4g4ajpoqAgSYCf_NKNwbFogQEQ",
+      authDomain: "golf-collection-list.firebaseapp.com",
+      projectId: "golf-collection-list",
+      storageBucket: "golf-collection-list.appspot.com",
+      messagingSenderId: "119781201406",
+      appId: "1:119781201406:web:43499800e32cc9c5b25caf",
+      measurementId: "G-E396QPZBG6"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const inventoryIds = ["ptt-2024","amata-2024","ptt-2025","amata-2025"];
+    let lastDocId = null;
+    let lastBags = [];
+
+    const tableBody = document.getElementById("recordsTableBody");
+    const successMessage = document.getElementById("successMessage");
+    const undoButton = document.getElementById("undoButton");
+
+    // ฟังก์ชันแสดง Inventory (Realtime)
+    inventoryIds.forEach(id => {
+      onSnapshot(doc(db, "inventory", id), (snap) => {
+        if (!snap.exists()) return;
+        const data = snap.data();
+        document.getElementById(`${id}-total`).textContent = data.total;
+        document.getElementById(`${id}-used`).textContent = data.used;
+        document.getElementById(`${id}-remaining`).textContent = data.remaining;
+      });
+    });
+
+    // โหลด Records (Realtime)
+    onSnapshot(collection(db, "collections"), (snapshot) => {
+      tableBody.innerHTML = "";
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        const row = `<tr>
+          <td class="p-2">${data.date}</td>
+          <td class="p-2">${data.name}</td>
+          <td class="p-2">${data.telephone}</td>
+          <td class="p-2">${(data.bags||[]).join(", ")}</td>
+          <td class="p-2">${data.signature}</td>
+        </tr>`;
+        tableBody.innerHTML += row;
+      });
+    });
+
+    // Form Submit
+    const form = document.getElementById("collectionForm");
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const date = document.getElementById("date").value;
+      const name = document.getElementById("name").value;
+      const telephone = document.getElementById("telephone").value;
+      const signature = document.getElementById("signature").value;
+      const bags = Array.from(form.querySelectorAll("input[type=checkbox]:checked")).map(cb => cb.value);
+      if (bags.length === 0) { alert("Select at least one bag."); return; }
+
+      // ลด stock
+      for (const bag of bags) {
+        const bagRef = doc(db, "inventory", bag);
+        await updateDoc(bagRef, {
+          used: increment(1),
+          remaining: increment(-1)
+        });
+      }
+
+      // บันทึก collection
+      const docRef = await addDoc(collection(db, "collections"), { date, name, telephone, signature, bags });
+      lastDocId = docRef.id;
+      lastBags = bags;
+
+      successMessage.classList.add("show");
+      setTimeout(() => successMessage.classList.remove("show"), 10000);
+      form.reset();
+    });
+
+    // Undo Button
+    undoButton.addEventListener("click", async () => {
+      if (lastDocId) {
+        // ลบ record
+        await deleteDoc(doc(db, "collections", lastDocId));
+        // คืนค่า stock
+        for (const bag of lastBags) {
+          const bagRef = doc(db, "inventory", bag);
+          await updateDoc(bagRef, {
+            used: increment(-1),
+            remaining: increment(1)
+          });
+        }
+        successMessage.classList.remove("show");
+        lastDocId = null;
+      }
+    });
+  </script>
   <style>
     body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
     .bag-card { transition: all 0.3s ease; }
     .bag-card:hover { transform: translateY(-5px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
-    .success-message { transform: translateY(-20px); opacity: 0; transition: all 0.5s ease; }
-    .success-message.show { transform: translateY(0); opacity: 1; }
+    .success-message { display:none; position:fixed; top:1rem; right:1rem; background:#d1fae5; padding:1rem; border-radius:.5rem; }
+    .success-message.show { display:block; }
     .bag-image { width: 100%; height: 100%; object-fit: contain; }
     .image-container { background-color: #f3f4f6; display: flex; align-items: center; justify-content: center; }
   </style>
@@ -22,8 +120,39 @@
   <h1 class="text-3xl font-bold text-center mb-6">Golf Collection List</h1>
 
   <!-- Dashboard -->
-  <div id="dashboard" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-    <!-- cards จะถูกสร้างอัตโนมัติจาก Firestore -->
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+    <div class="bag-card bg-white rounded-lg shadow-md overflow-hidden">
+      <div class="image-container h-64"><img src="https://i.ibb.co/HD0PLqk5/thumbnail-IMG-8849.jpg" class="bag-image"></div>
+      <div class="p-4"><h3 class="font-semibold">2024 – PTT NGD</h3>
+        <p>Total: <span id="ptt-2024-total">0</span></p>
+        <p>Used: <span id="ptt-2024-used">0</span></p>
+        <p class="text-green-600">Remaining: <span id="ptt-2024-remaining">0</span></p>
+      </div>
+    </div>
+    <div class="bag-card bg-white rounded-lg shadow-md overflow-hidden">
+      <div class="image-container h-64"><img src="https://i.ibb.co/jBfdyYY/thumbnail-IMG-8850.jpg" class="bag-image"></div>
+      <div class="p-4"><h3 class="font-semibold">2024 – AMATA NGD</h3>
+        <p>Total: <span id="amata-2024-total">0</span></p>
+        <p>Used: <span id="amata-2024-used">0</span></p>
+        <p class="text-green-600">Remaining: <span id="amata-2024-remaining">0</span></p>
+      </div>
+    </div>
+    <div class="bag-card bg-white rounded-lg shadow-md overflow-hidden">
+      <div class="image-container h-64"><img src="https://i.ibb.co/qFr04hHx/thumbnail-IMG-8851.jpg" class="bag-image"></div>
+      <div class="p-4"><h3 class="font-semibold">2025 – PTT NGD</h3>
+        <p>Total: <span id="ptt-2025-total">0</span></p>
+        <p>Used: <span id="ptt-2025-used">0</span></p>
+        <p class="text-green-600">Remaining: <span id="ptt-2025-remaining">0</span></p>
+      </div>
+    </div>
+    <div class="bag-card bg-white rounded-lg shadow-md overflow-hidden">
+      <div class="image-container h-64"><img src="https://i.ibb.co/Q3nKbZqY/thumbnail-IMG-8848.jpg" class="bag-image"></div>
+      <div class="p-4"><h3 class="font-semibold">2025 – AMATA NGD</h3>
+        <p>Total: <span id="amata-2025-total">0</span></p>
+        <p>Used: <span id="amata-2025-used">0</span></p>
+        <p class="text-green-600">Remaining: <span id="amata-2025-remaining">0</span></p>
+      </div>
+    </div>
   </div>
 
   <!-- Form -->
@@ -35,8 +164,11 @@
       <input type="text" id="signature" class="border p-2 rounded" placeholder="Signature" required>
     </div>
     <p class="font-medium mb-2">Select Bag(s):</p>
-    <div id="bagOptions" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-      <!-- checkboxes จะสร้างตาม inventory -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+      <label><input type="checkbox" value="ptt-2024"> 2024 – PTT NGD</label>
+      <label><input type="checkbox" value="amata-2024"> 2024 – AMATA NGD</label>
+      <label><input type="checkbox" value="ptt-2025"> 2025 – PTT NGD</label>
+      <label><input type="checkbox" value="amata-2025"> 2025 – AMATA NGD</label>
     </div>
     <button class="px-6 py-2 bg-blue-600 text-white rounded">Submit</button>
   </form>
@@ -54,127 +186,9 @@
   </table>
 </div>
 
-<div id="successMessage" class="success-message fixed top-4 right-4 bg-green-100 p-4 rounded shadow">Saved!</div>
+<div id="successMessage" class="success-message">
+  Saved! <button id="undoButton" class="ml-4 text-blue-700 underline">Undo</button>
+</div>
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, onSnapshot, doc, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-// Firebase config
-const firebaseConfig = {
-  apiKey: "AIzaSyCDG0_qs4g4ajpoqAgSYCf_NKNwbFogQEQ",
-  authDomain: "golf-collection-list.firebaseapp.com",
-  projectId: "golf-collection-list",
-  storageBucket: "golf-collection-list.appspot.com",
-  messagingSenderId: "119781201406",
-  appId: "1:119781201406:web:43499800e32cc9c5b25caf",
-  measurementId: "G-E396QPZBG6"
-};
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
-const dashboard = document.getElementById("dashboard");
-const bagOptions = document.getElementById("bagOptions");
-const form = document.getElementById("collectionForm");
-const tableBody = document.getElementById("recordsTableBody");
-const successMessage = document.getElementById("successMessage");
-
-// set today's date
-document.getElementById("date").value = new Date().toISOString().split("T")[0];
-
-// image map
-const images = {
-  "ptt-2024": "https://i.ibb.co/HD0PLqk5/thumbnail-IMG-8849.jpg",
-  "amata-2024": "https://i.ibb.co/jBfdyYY/thumbnail-IMG-8850.jpg",
-  "ptt-2025": "https://i.ibb.co/qFr04hHx/thumbnail-IMG-8851.jpg",
-  "amata-2025": "https://i.ibb.co/Q3nKbZqY/thumbnail-IMG-8848.jpg"
-};
-
-// Real-time inventory update
-onSnapshot(collection(db, "inventory"), (snapshot) => {
-  dashboard.innerHTML = "";
-  bagOptions.innerHTML = "";
-  snapshot.forEach(docSnap => {
-    const data = docSnap.data();
-    const id = docSnap.id;
-
-    // card
-    dashboard.innerHTML += `
-      <div class="bag-card bg-white rounded-lg shadow-md overflow-hidden">
-        <div class="image-container h-64"><img src="${images[id]}" class="bag-image"></div>
-        <div class="p-4"><h3 class="font-semibold">${id.replace("-", " – ").toUpperCase()}</h3>
-          <p>Total: ${data.total}</p>
-          <p>Used: ${data.used}</p>
-          <p class="text-green-600">Remaining: ${data.remaining}</p>
-        </div>
-      </div>
-    `;
-
-    // checkbox
-    const disabled = data.remaining <= 0 ? "disabled" : "";
-    const label = id.replace("-", " – ").toUpperCase();
-    bagOptions.innerHTML += `
-      <label class="${disabled ? 'opacity-50' : ''}">
-        <input type="checkbox" value="${id}" ${disabled}> ${label}
-      </label>
-    `;
-  });
-});
-
-// Real-time collections update
-onSnapshot(collection(db, "collections"), (snapshot) => {
-  tableBody.innerHTML = "";
-  snapshot.forEach(docSnap => {
-    const d = docSnap.data();
-    tableBody.innerHTML += `
-      <tr>
-        <td class="p-2">${d.date}</td>
-        <td class="p-2">${d.name}</td>
-        <td class="p-2">${d.telephone}</td>
-        <td class="p-2">${(d.bags || []).join(", ")}</td>
-        <td class="p-2">${d.signature}</td>
-      </tr>
-    `;
-  });
-});
-
-// Submit form
-form.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const date = document.getElementById("date").value;
-  const name = document.getElementById("name").value;
-  const telephone = document.getElementById("telephone").value;
-  const signature = document.getElementById("signature").value;
-  const bags = Array.from(form.querySelectorAll("input[type=checkbox]:checked")).map(cb => cb.value);
-
-  if (bags.length === 0) {
-    alert("Please select at least one bag.");
-    return;
-  }
-
-  // 1. add record
-  await addDoc(collection(db, "collections"), { date, name, telephone, signature, bags });
-
-  // 2. update inventory (transaction)
-  for (const bag of bags) {
-    const bagRef = doc(db, "inventory", bag);
-    await runTransaction(db, async (transaction) => {
-      const docSnap = await transaction.get(bagRef);
-      if (!docSnap.exists()) return;
-      const data = docSnap.data();
-      if (data.remaining > 0) {
-        transaction.update(bagRef, {
-          used: data.used + 1,
-          remaining: data.remaining - 1
-        });
-      }
-    });
-  }
-
-  successMessage.classList.add("show");
-  setTimeout(() => successMessage.classList.remove("show"), 2000);
-  form.reset();
-});
-</script>
 </body>
 </html>
