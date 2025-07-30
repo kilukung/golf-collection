@@ -76,9 +76,7 @@ body { font-family: 'Poppins', sans-serif; }
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, setDoc, doc, onSnapshot, getDoc, deleteDoc } 
-from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
+import { getFirestore, collection, addDoc, getDocs, setDoc, doc, onSnapshot, getDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCDG0_qs4g4ajpoqAgSYCf_NKNwbFogQEQ",
@@ -193,12 +191,12 @@ form.addEventListener("submit", async e=>{
       await setDoc(invRef,{...invData,used:invData.used+1,remaining:invData.remaining-1});
     }
   }
-
-  await addDoc(collection(db,"collections"),{
+const docRef = await addDoc(collection(db,"collections"),{
   date,name,telephone,signature,bags:selectedBags
 });
 lastAction = { selected:[...selectedBags], recordId: docRef.id };
 undoBtn.classList.remove("hidden");
+
 
   successMessage.classList.add("show");
   setTimeout(()=>successMessage.classList.remove("show"),2000);
@@ -223,7 +221,6 @@ undoBtn.addEventListener("click",async()=>{
   undoBtn.classList.add("hidden");
   loadRecords();
 });
-
 
 loadRecords();
 </script>
