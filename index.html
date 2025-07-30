@@ -22,39 +22,8 @@
   <h1 class="text-3xl font-bold text-center mb-6">Golf Collection List</h1>
 
   <!-- Dashboard -->
-  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-    <div class="bag-card bg-white rounded-lg shadow-md overflow-hidden">
-      <div class="image-container h-64"><img src="https://i.ibb.co/HD0PLqk5/thumbnail-IMG-8849.jpg" class="bag-image"></div>
-      <div class="p-4"><h3 class="font-semibold">2024 – PTT NGD</h3>
-        <p>Total: <span id="ptt-2024-total">10</span></p>
-        <p>Used: <span id="ptt-2024-used">0</span></p>
-        <p class="text-green-600">Remaining: <span id="ptt-2024-remaining">10</span></p>
-      </div>
-    </div>
-    <div class="bag-card bg-white rounded-lg shadow-md overflow-hidden">
-      <div class="image-container h-64"><img src="https://i.ibb.co/jBfdyYY/thumbnail-IMG-8850.jpg" class="bag-image"></div>
-      <div class="p-4"><h3 class="font-semibold">2024 – AMATA NGD</h3>
-        <p>Total: <span id="amata-2024-total">8</span></p>
-        <p>Used: <span id="amata-2024-used">0</span></p>
-        <p class="text-green-600">Remaining: <span id="amata-2024-remaining">8</span></p>
-      </div>
-    </div>
-    <div class="bag-card bg-white rounded-lg shadow-md overflow-hidden">
-      <div class="image-container h-64"><img src="https://i.ibb.co/qFr04hHx/thumbnail-IMG-8851.jpg" class="bag-image"></div>
-      <div class="p-4"><h3 class="font-semibold">2025 – PTT NGD</h3>
-        <p>Total: <span id="ptt-2025-total">7</span></p>
-        <p>Used: <span id="ptt-2025-used">0</span></p>
-        <p class="text-green-600">Remaining: <span id="ptt-2025-remaining">7</span></p>
-      </div>
-    </div>
-    <div class="bag-card bg-white rounded-lg shadow-md overflow-hidden">
-      <div class="image-container h-64"><img src="https://i.ibb.co/Q3nKbZqY/thumbnail-IMG-8848.jpg" class="bag-image"></div>
-      <div class="p-4"><h3 class="font-semibold">2025 – AMATA NGD</h3>
-        <p>Total: <span id="amata-2025-total">7</span></p>
-        <p>Used: <span id="amata-2025-used">0</span></p>
-        <p class="text-green-600">Remaining: <span id="amata-2025-remaining">7</span></p>
-      </div>
-    </div>
+  <div id="dashboard" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+    <!-- cards จะถูกสร้างอัตโนมัติจาก Firestore -->
   </div>
 
   <!-- Form -->
@@ -66,11 +35,8 @@
       <input type="text" id="signature" class="border p-2 rounded" placeholder="Signature" required>
     </div>
     <p class="font-medium mb-2">Select Bag(s):</p>
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-      <label><input type="checkbox" value="ptt-2024"> 2024 – PTT NGD</label>
-      <label><input type="checkbox" value="amata-2024"> 2024 – AMATA NGD</label>
-      <label><input type="checkbox" value="ptt-2025"> 2025 – PTT NGD</label>
-      <label><input type="checkbox" value="amata-2025"> 2025 – AMATA NGD</label>
+    <div id="bagOptions" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+      <!-- checkboxes จะสร้างตาม inventory -->
     </div>
     <button class="px-6 py-2 bg-blue-600 text-white rounded">Submit</button>
   </form>
@@ -92,9 +58,9 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, onSnapshot, doc, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-// Firebase Config
+// Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyCDG0_qs4g4ajpoqAgSYCf_NKNwbFogQEQ",
   authDomain: "golf-collection-list.firebaseapp.com",
@@ -107,28 +73,72 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
+const dashboard = document.getElementById("dashboard");
+const bagOptions = document.getElementById("bagOptions");
 const form = document.getElementById("collectionForm");
 const tableBody = document.getElementById("recordsTableBody");
 const successMessage = document.getElementById("successMessage");
 
-// โหลดข้อมูล
-async function loadRecords() {
-  tableBody.innerHTML = "";
-  const snapshot = await getDocs(collection(db, "collections"));
-  snapshot.forEach(doc => {
-    const data = doc.data();
-    const row = `<tr>
-      <td class="p-2">${data.date}</td>
-      <td class="p-2">${data.name}</td>
-      <td class="p-2">${data.telephone}</td>
-      <td class="p-2">${(data.bags || []).join(", ")}</td>
-      <td class="p-2">${data.signature}</td>
-    </tr>`;
-    tableBody.innerHTML += row;
-  });
-}
+// set today's date
+document.getElementById("date").value = new Date().toISOString().split("T")[0];
 
-// บันทึก
+// image map
+const images = {
+  "ptt-2024": "https://i.ibb.co/HD0PLqk5/thumbnail-IMG-8849.jpg",
+  "amata-2024": "https://i.ibb.co/jBfdyYY/thumbnail-IMG-8850.jpg",
+  "ptt-2025": "https://i.ibb.co/qFr04hHx/thumbnail-IMG-8851.jpg",
+  "amata-2025": "https://i.ibb.co/Q3nKbZqY/thumbnail-IMG-8848.jpg"
+};
+
+// Real-time inventory update
+onSnapshot(collection(db, "inventory"), (snapshot) => {
+  dashboard.innerHTML = "";
+  bagOptions.innerHTML = "";
+  snapshot.forEach(docSnap => {
+    const data = docSnap.data();
+    const id = docSnap.id;
+
+    // card
+    dashboard.innerHTML += `
+      <div class="bag-card bg-white rounded-lg shadow-md overflow-hidden">
+        <div class="image-container h-64"><img src="${images[id]}" class="bag-image"></div>
+        <div class="p-4"><h3 class="font-semibold">${id.replace("-", " – ").toUpperCase()}</h3>
+          <p>Total: ${data.total}</p>
+          <p>Used: ${data.used}</p>
+          <p class="text-green-600">Remaining: ${data.remaining}</p>
+        </div>
+      </div>
+    `;
+
+    // checkbox
+    const disabled = data.remaining <= 0 ? "disabled" : "";
+    const label = id.replace("-", " – ").toUpperCase();
+    bagOptions.innerHTML += `
+      <label class="${disabled ? 'opacity-50' : ''}">
+        <input type="checkbox" value="${id}" ${disabled}> ${label}
+      </label>
+    `;
+  });
+});
+
+// Real-time collections update
+onSnapshot(collection(db, "collections"), (snapshot) => {
+  tableBody.innerHTML = "";
+  snapshot.forEach(docSnap => {
+    const d = docSnap.data();
+    tableBody.innerHTML += `
+      <tr>
+        <td class="p-2">${d.date}</td>
+        <td class="p-2">${d.name}</td>
+        <td class="p-2">${d.telephone}</td>
+        <td class="p-2">${(d.bags || []).join(", ")}</td>
+        <td class="p-2">${d.signature}</td>
+      </tr>
+    `;
+  });
+});
+
+// Submit form
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   const date = document.getElementById("date").value;
@@ -137,14 +147,34 @@ form.addEventListener("submit", async (e) => {
   const signature = document.getElementById("signature").value;
   const bags = Array.from(form.querySelectorAll("input[type=checkbox]:checked")).map(cb => cb.value);
 
-  await addDoc(collection(db, "collections"), { date, name, telephone, signature, bags });
-  successMessage.classList.add("show");
-  setTimeout(()=>successMessage.classList.remove("show"), 2000);
-  form.reset();
-  loadRecords();
-});
+  if (bags.length === 0) {
+    alert("Please select at least one bag.");
+    return;
+  }
 
-loadRecords();
+  // 1. add record
+  await addDoc(collection(db, "collections"), { date, name, telephone, signature, bags });
+
+  // 2. update inventory (transaction)
+  for (const bag of bags) {
+    const bagRef = doc(db, "inventory", bag);
+    await runTransaction(db, async (transaction) => {
+      const docSnap = await transaction.get(bagRef);
+      if (!docSnap.exists()) return;
+      const data = docSnap.data();
+      if (data.remaining > 0) {
+        transaction.update(bagRef, {
+          used: data.used + 1,
+          remaining: data.remaining - 1
+        });
+      }
+    });
+  }
+
+  successMessage.classList.add("show");
+  setTimeout(() => successMessage.classList.remove("show"), 2000);
+  form.reset();
+});
 </script>
 </body>
 </html>
